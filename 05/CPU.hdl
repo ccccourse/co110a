@@ -40,4 +40,32 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+    Not(in=instruction[15], out=Ainstruction);//if(instruction[15] == 0 ) it is A instruction
+    Mux16(a=ALUout, b=instruction, sel=Ainstruction, out=Aregin);
+    
+    Or(a=Ainstruction, b=instruction[5], out=loadA);    // load A if A-inst or dest to A-reg
+    ARegister(in=Aregin, load=loadA, out=Aout);
+    
+    Mux16(a=Aout, b=inM, sel=instruction[12], out=AMout);   // select A or M based on a-bit
+
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=ALUout, load=loadD, out=Dout);    // load the D register from ALU
+    
+    ALU(x=Dout, y=AMout, zx=instruction[11], nx=instruction[10], 
+        zy=instruction[9], ny=instruction[8], f=instruction[7],
+        no=instruction[6], out=ALUout, zr=ZRout, ng=NGout); // calculate
+        
+    Or16(a=false, b=Aout, out[0..14]=addressM);
+    Or16(a=false, b=ALUout, out=outM);
+    And(a=instruction[15], b=instruction[3], out=writeM);
+   
+    And(a=ZRout, b=instruction[1], out=jeq);    // is zero and jump if zero
+    And(a=NGout, b=instruction[2], out=jlt);    // is neg and jump if neg
+    Or(a=ZRout, b=NGout, out=zeroOrNeg);
+    Not(in=zeroOrNeg, out=positive);            // is positive (not zero and not neg)
+    And(a=positive, b=instruction[0], out=jgt); // is pos and jump if pos
+    Or(a=jeq, b=jlt, out=jle);
+    Or(a=jle, b=jgt, out=jumpToA);              // load PC if cond met and jump if cond
+    And(a=instruction[15], b=jumpToA, out=PCload); // Only jump if C instruction
+    PC(in=Aout, inc=true, load=PCload, reset=reset, out[0..14]=pc);
 }
